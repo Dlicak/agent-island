@@ -101,6 +101,8 @@ class Daemon(dbus.service.Object):
         super().__init__(bus, OBJ_PATH)
         self.sessions = {}
         self.pending = {}
+        self.last_notify = None
+        self.notify_seq = 0
         self.lock = threading.Lock()
 
     # ------------------------------------------------------------------ D-Bus
@@ -150,7 +152,8 @@ class Daemon(dbus.service.Object):
         with self.lock:
             sessions = sorted(self.sessions.values(), key=lambda s: s.get("updated", 0),
                               reverse=True)
-            return json.dumps({"sessions": [dict(s) for s in sessions]})
+            return json.dumps({"sessions": [dict(s) for s in sessions],
+                               "notify": self.last_notify})
 
     def _emit(self):
         GLib.idle_add(self._emit_main)
@@ -240,6 +243,15 @@ class Daemon(dbus.service.Object):
                     sess.setdefault("status", "idle")
                     if msg.get("cwd") and not sess.get("cwd"):
                         sess["cwd"] = msg.get("cwd")
+                elif hook == "Notify":
+                    sess.setdefault("status", "idle")
+                    self.notify_seq += 1
+                    self.last_notify = {
+                        "id": self.notify_seq,
+                        "text": msg.get("message") or "",
+                        "session_id": sid,
+                        "at": now,
+                    }
                 sess["updated"] = now
                 pid = sess.get("pid")
                 if pid:

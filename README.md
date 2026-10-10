@@ -6,6 +6,8 @@ doing and lets you act on it without leaving the current app:
 - **status** of every running agent session (idle / working / needs permission),
 - **pulse** — the indicator gently pulses (no sound) while a session is waiting
   for permission, so the prompt is noticeable without audio,
+- **toast** — a brief silent note in the bar when something notable happens
+  (e.g. `✓ commit 1a2b3c4`, `↑ push`), also without sound,
 - **Jump** — raise the terminal window running the session,
 - **Allow / Always / Deny** — answer a permission prompt straight from the bar.
 
@@ -36,10 +38,12 @@ Currently targets **OpenCode** on **GNOME Shell (Wayland)**.
   "jump to terminal" and can focus the matching tmux pane.
 - **plugin/** — OpenCode plugin (`agent-island.js`). Maps OpenCode events to the
   daemon protocol (`SessionStart`, `Busy`, `SessionIdle`, `PreToolUse`,
-  `PostToolUse`, `SessionEnd`, `PermissionRequest`) and forwards permission
-  decisions back to OpenCode. `Busy`/`SessionIdle` come from the `session.status`
-  event (`busy`/`retry`/`idle`) so the indicator stays in *working* for the whole
-  time the agent is busy (thinking + tools), not only while a tool runs.
+  `PostToolUse`, `SessionEnd`, `PermissionRequest`, `Notify`) and forwards
+  permission decisions back to OpenCode. `Busy`/`SessionIdle` come from the
+  `session.status` event (`busy`/`retry`/`idle`) so the indicator stays in
+  *working* for the whole time the agent is busy (thinking + tools), not only
+  while a tool runs. `Notify` is emitted on notable completed commands
+  (e.g. `git commit`/`git push`, `gh pr`) to drive the silent bar toast.
 - **extension/** — GNOME Shell extension (`agent-island@lynx`). A panel
   indicator that reflects daemon state and renders the popup with actions.
 
@@ -85,6 +89,9 @@ ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-is
 - Indicator states: `○` no session / offline · `●` session present, idle
   (waiting for you) · `◐` working (thinking or running a tool) · `◉` needs
   permission (pulses). The number is the session count.
+- A silent toast (green text in the bar, ~4s) appears for notable completed
+  commands recognised by the plugin (`git commit`, `git push`, `git merge`,
+  `git rebase`, `gh pr create/merge`), e.g. `✓ commit 1a2b3c4`.
 - The daemon keeps session state in memory; a daemon restart (e.g. on logout)
   clears it until the next agent event arrives. The OpenCode plugin sends a
   heartbeat every 10s, so live sessions reappear within a few seconds even if

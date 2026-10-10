@@ -23,6 +23,12 @@
   padding-left: 1px;
 }
 
+.agent-island-toast {
+  color: #26a269;
+  font-weight: bold;
+  padding-left: 6px;
+}
+
 .ai-working {
   color: #3584e4;
 }

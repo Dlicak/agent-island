@@ -5,6 +5,29 @@ import { join } from "path";
 const RUNTIME = process.env.XDG_RUNTIME_DIR || join(tmpdir());
 const SOCKET = join(RUNTIME, "agent-island.sock");
 
+function notable(part) {
+  const state = part?.state || {};
+  const cmd = typeof state.input?.command === "string" ? state.input.command : "";
+  if (!cmd)
+    return null;
+  const out = typeof state.output === "string" ? state.output : "";
+  if (/\bgit\s+commit\b/.test(cmd)) {
+    const m = out.match(/\[[^\]]*?\b([0-9a-f]{7,40})\b/);
+    return "✓ commit" + (m ? " " + m[1].slice(0, 7) : "");
+  }
+  if (/\bgit\s+push\b/.test(cmd))
+    return "↑ push";
+  if (/\bgh\s+pr\s+create\b/.test(cmd))
+    return "✓ PR";
+  if (/\bgh\s+pr\s+merge\b/.test(cmd))
+    return "✓ merged";
+  if (/\bgit\s+merge\b/.test(cmd))
+    return "merge";
+  if (/\bgit\s+rebase\b/.test(cmd))
+    return "rebase";
+  return null;
+}
+
 function send(json) {
   return new Promise((resolve) => {
     try {
@@ -95,6 +118,14 @@ export default async ({ client, serverUrl }) => {
             hook_event_name: "PostToolUse",
             tool_name: toolName,
           });
+          if (st === "completed") {
+            const note = notable(p.part);
+            if (note)
+              await send(base(`opencode-${p.part.sessionID}`, {
+                hook_event_name: "Notify",
+                message: note,
+              }));
+          }
         }
       } else if (t === "permission.asked" && p.id && p.sessionID) {
         const toolName =

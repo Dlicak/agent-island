@@ -30,13 +30,22 @@ class AgentIslandIndicator extends PanelMenu.Button {
     });
     this._symbol = new St.Label({ text: '○', y_align: Clutter.ActorAlign.CENTER });
     this._count = new St.Label({ text: '', y_align: Clutter.ActorAlign.CENTER, style_class: 'ai-count' });
+    this._toast = new St.Label({
+      text: '',
+      visible: false,
+      y_align: Clutter.ActorAlign.CENTER,
+      style_class: 'agent-island-toast',
+    });
     this._box.add_child(this._symbol);
     this._box.add_child(this._count);
+    this._box.add_child(this._toast);
     this.add_child(this._box);
 
     this._pulseId = null;
     this._pulseDim = true;
     this._pollId = null;
+    this._toastId = null;
+    this._lastNotify = 0;
 
     this._proxy = new Gio.DBusProxy({
       g_connection: Gio.DBus.session,
@@ -54,11 +63,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
       if (signal !== 'StateChanged')
         return;
       try {
-        const state = JSON.parse(params.deep_unpack()[0]);
-        this._online = true;
-        this._sessions = state.sessions || [];
-        this._updatePanel();
-        this._rebuildMenu();
+        this._applyState(JSON.parse(params.deep_unpack()[0]));
       } catch (e) { logError(e); }
     });
 
@@ -93,16 +98,48 @@ class AgentIslandIndicator extends PanelMenu.Button {
       }
       const wasOnline = this._online;
       if (state) {
-        this._online = true;
-        this._sessions = state.sessions || [];
+        this._applyState(state);
       } else {
         this._online = false;
         this._sessions = [];
+        this._updatePanel();
+        this._rebuildMenu();
       }
       if (wasOnline !== this._online)
         console.log(`[agent-island] daemon online=${this._online}`);
-      this._updatePanel();
-      this._rebuildMenu();
+    });
+  }
+
+  _applyState(state) {
+    this._online = true;
+    this._sessions = state.sessions || [];
+    const n = state.notify;
+    if (n && n.id !== this._lastNotify) {
+      this._lastNotify = n.id;
+      if (n.text && (Date.now() / 1000 - (n.at || 0)) < 15)
+        this._showToast(n.text);
+    }
+    this._updatePanel();
+    this._rebuildMenu();
+  }
+
+  _showToast(text) {
+    if (!this._toast)
+      return;
+    console.log(`[agent-island] toast: ${text}`);
+    this._toast.text = text;
+    this._toast.visible = true;
+    if (this._toastId) {
+      GLib.source_remove(this._toastId);
+      this._toastId = null;
+    }
+    this._toastId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 4, () => {
+      this._toastId = null;
+      if (this._toast) {
+        this._toast.visible = false;
+        this._toast.text = '';
+      }
+      return GLib.SOURCE_REMOVE;
     });
   }
 
@@ -261,6 +298,10 @@ class AgentIslandIndicator extends PanelMenu.Button {
     if (this._pollId) {
       GLib.source_remove(this._pollId);
       this._pollId = null;
+    }
+    if (this._toastId) {
+      GLib.source_remove(this._toastId);
+      this._toastId = null;
     }
     if (this._proxy) {
       if (this._signalId)
