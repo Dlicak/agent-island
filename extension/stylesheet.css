@@ -15,6 +15,14 @@
   color: #9a9996;
 }
 
+.ai-present {
+}
+
+.ai-count {
+  font-weight: bold;
+  padding-left: 1px;
+}
+
 .ai-working {
   color: #3584e4;
 }

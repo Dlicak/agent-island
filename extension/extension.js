@@ -29,7 +29,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
       y_align: Clutter.ActorAlign.CENTER,
     });
     this._symbol = new St.Label({ text: '○', y_align: Clutter.ActorAlign.CENTER });
-    this._count = new St.Label({ text: '', y_align: Clutter.ActorAlign.CENTER });
+    this._count = new St.Label({ text: '', y_align: Clutter.ActorAlign.CENTER, style_class: 'ai-count' });
     this._box.add_child(this._symbol);
     this._box.add_child(this._count);
     this.add_child(this._box);
@@ -116,10 +116,17 @@ class AgentIslandIndicator extends PanelMenu.Button {
       this._stopPulse();
       return;
     }
-    this._symbol.text = waiting ? SYMBOL.waiting : working ? SYMBOL.working : SYMBOL.idle;
+    if (!this._sessions.length) {
+      this._symbol.text = SYMBOL.idle;
+      this._symbol.style_class = 'agent-island-symbol ai-idle';
+      this._count.text = '';
+      this._stopPulse();
+      return;
+    }
+    this._symbol.text = waiting ? SYMBOL.waiting : working ? SYMBOL.working : '●';
     this._symbol.style_class =
-      'agent-island-symbol ' + (waiting ? 'ai-waiting' : working ? 'ai-working' : 'ai-idle');
-    this._count.text = this._sessions.length ? String(this._sessions.length) : '';
+      'agent-island-symbol ' + (waiting ? 'ai-waiting' : working ? 'ai-working' : 'ai-present');
+    this._count.text = String(this._sessions.length);
 
     if (waiting)
       this._startPulse();
