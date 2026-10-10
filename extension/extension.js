@@ -43,7 +43,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this.add_child(this._box);
 
     this._pulseId = null;
-    this._pulseBig = true;
+    this._pulseRight = true;
     this._pollId = null;
     this._toastId = null;
     this._lastNotify = 0;
@@ -187,16 +187,15 @@ class AgentIslandIndicator extends PanelMenu.Button {
   _startPulse() {
     if (this._pulseId || !this._symbol)
       return;
-    this._pulseBig = true;
+    this._pulseRight = true;
     this._symbol.ease({
-      scale_x: 2.2, scale_y: 2.2, duration: 700,
+      translation_x: 9, duration: 700,
       mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
     });
     this._pulseId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 750, () => {
-      this._pulseBig = !this._pulseBig;
-      const s = this._pulseBig ? 2.2 : 1.0;
+      this._pulseRight = !this._pulseRight;
       this._symbol.ease({
-        scale_x: s, scale_y: s, duration: 700,
+        translation_x: this._pulseRight ? 9 : -9, duration: 700,
         mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
       });
       return GLib.SOURCE_CONTINUE;
@@ -209,7 +208,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
       this._pulseId = null;
     }
     if (this._symbol)
-      this._symbol.ease({ scale_x: 1.0, scale_y: 1.0, duration: 200 });
+      this._symbol.ease({ translation_x: 0, scale_x: 1.0, scale_y: 1.0, duration: 200 });
     if (this._box)
       this._box.ease({ opacity: 255, duration: 200 });
   }

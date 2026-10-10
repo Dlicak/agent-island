@@ -93,7 +93,7 @@ ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-is
 - Indicator states — a filled dot whose colour is the state: **grey** = daemon
   offline / no session, **white** = idle (nothing happening), **blue** = working
   (build), **orange** = working (plan), **violet** = waiting for you
-  (permission / question, breathes: the dot scales up and down), **red** = error. The number is the session
+  (permission / question, rolls left and right along the panel), **red** = error. The number is the session
   count.
 - A silent toast (green text in the bar, ~4s) appears for notable completed
   commands recognised by the plugin (`git commit`, `git push`, `git merge`,
