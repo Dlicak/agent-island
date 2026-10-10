@@ -210,11 +210,22 @@ class Daemon(dbus.service.Object):
                 if hook == "SessionStart":
                     if msg.get("cwd"):
                         sess["cwd"] = msg.get("cwd")
-                    sess.update({"status": "idle", "tool": None, "permission": None})
+                    sess.update({"status": "idle", "tool": None, "permission": None,
+                                 "busy": False})
+                elif hook == "Busy":
+                    sess["busy"] = True
+                    if sess.get("status") != "waiting":
+                        sess["status"] = "working"
+                elif hook == "SessionIdle":
+                    sess["busy"] = False
+                    if sess.get("status") != "waiting":
+                        sess.update({"status": "idle", "tool": None})
                 elif hook == "PreToolUse":
                     sess.update({"status": "working", "tool": msg.get("tool_name")})
                 elif hook == "PostToolUse":
-                    sess.update({"status": "idle", "tool": None})
+                    sess["tool"] = None
+                    if not sess.get("busy"):
+                        sess["status"] = "idle"
                 elif hook == "PermissionRequest":
                     sess.update({
                         "status": "waiting",

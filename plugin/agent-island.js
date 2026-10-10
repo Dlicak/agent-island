@@ -125,6 +125,14 @@ export default async ({ client, serverUrl }) => {
           }
           return;
         }
+      } else if (t === "session.status" && p.sessionID) {
+        const st = p.status?.type;
+        if (st === "busy" || st === "retry")
+          mapped = base(`opencode-${p.sessionID}`, { hook_event_name: "Busy" });
+        else if (st === "idle")
+          mapped = base(`opencode-${p.sessionID}`, { hook_event_name: "SessionIdle" });
+      } else if (t === "session.idle" && p.sessionID) {
+        mapped = base(`opencode-${p.sessionID}`, { hook_event_name: "SessionIdle" });
       }
 
       if (mapped) {
