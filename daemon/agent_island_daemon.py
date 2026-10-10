@@ -230,7 +230,11 @@ class Daemon(dbus.service.Object):
                         sess.update({"status": "idle", "tool": None})
                 elif hook == "PreToolUse":
                     sess["error"] = None
-                    sess.update({"status": "working", "tool": msg.get("tool_name")})
+                    tool = msg.get("tool_name")
+                    if tool and tool.lower() in ("question", "ask", "askuserquestion"):
+                        sess.update({"status": "waiting", "tool": tool, "permission": None})
+                    else:
+                        sess.update({"status": "working", "tool": tool})
                 elif hook == "PostToolUse":
                     sess["tool"] = None
                     if not sess.get("busy"):

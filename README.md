@@ -44,7 +44,9 @@ Currently targets **OpenCode** on **GNOME Shell (Wayland)**.
   *working* for the whole time the agent is busy (thinking + tools), not only
   while a tool runs. `Mode` carries the current agent (`build`/`plan`) so the bar
   can colour *working* differently; `Error` comes from `session.error` and tool
-  failures. `Notify` is emitted on notable completed commands
+  failures. The OpenCode question tool (`Question`) is treated as *waiting* so
+  the bar breathes violet while the agent is asking you something. `Notify` is
+  emitted on notable completed commands
   (e.g. `git commit`/`git push`, `gh pr`) to drive the silent bar toast.
 - **extension/** — GNOME Shell extension (`agent-island@lynx`). A panel
   indicator that reflects daemon state and renders the popup with actions.
@@ -91,7 +93,7 @@ ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-is
 - Indicator states — a filled dot whose colour is the state: **grey** = daemon
   offline / no session, **white** = idle (nothing happening), **blue** = working
   (build), **orange** = working (plan), **violet** = waiting for you
-  (permission / question, pulses), **red** = error. The number is the session
+  (permission / question, breathes: the dot scales up and down), **red** = error. The number is the session
   count.
 - A silent toast (green text in the bar, ~4s) appears for notable completed
   commands recognised by the plugin (`git commit`, `git push`, `git merge`,

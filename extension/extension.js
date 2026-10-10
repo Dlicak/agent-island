@@ -29,6 +29,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
       y_align: Clutter.ActorAlign.CENTER,
     });
     this._symbol = new St.Label({ text: '○', y_align: Clutter.ActorAlign.CENTER });
+    try { this._symbol.set_pivot_point(0.5, 0.5); } catch (e) {}
     this._count = new St.Label({ text: '', y_align: Clutter.ActorAlign.CENTER, style_class: 'ai-count' });
     this._toast = new St.Label({
       text: '',
@@ -42,7 +43,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this.add_child(this._box);
 
     this._pulseId = null;
-    this._pulseDim = true;
+    this._pulseBig = true;
     this._pollId = null;
     this._toastId = null;
     this._lastNotify = 0;
@@ -184,17 +185,18 @@ class AgentIslandIndicator extends PanelMenu.Button {
   }
 
   _startPulse() {
-    if (this._pulseId || !this._box)
+    if (this._pulseId || !this._symbol)
       return;
-    this._pulseDim = true;
-    this._box.ease({
-      opacity: 90, duration: 550, mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
+    this._pulseBig = true;
+    this._symbol.ease({
+      scale_x: 1.5, scale_y: 1.5, duration: 550,
+      mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
     });
     this._pulseId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
-      this._pulseDim = !this._pulseDim;
-      this._box.ease({
-        opacity: this._pulseDim ? 90 : 255,
-        duration: 550,
+      this._pulseBig = !this._pulseBig;
+      const s = this._pulseBig ? 1.5 : 1.0;
+      this._symbol.ease({
+        scale_x: s, scale_y: s, duration: 550,
         mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
       });
       return GLib.SOURCE_CONTINUE;
@@ -206,6 +208,8 @@ class AgentIslandIndicator extends PanelMenu.Button {
       GLib.source_remove(this._pulseId);
       this._pulseId = null;
     }
+    if (this._symbol)
+      this._symbol.ease({ scale_x: 1.0, scale_y: 1.0, duration: 200 });
     if (this._box)
       this._box.ease({ opacity: 255, duration: 200 });
   }
