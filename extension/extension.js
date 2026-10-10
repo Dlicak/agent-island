@@ -189,14 +189,14 @@ class AgentIslandIndicator extends PanelMenu.Button {
       return;
     this._pulseBig = true;
     this._symbol.ease({
-      scale_x: 1.5, scale_y: 1.5, duration: 550,
+      scale_x: 2.2, scale_y: 2.2, duration: 700,
       mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
     });
-    this._pulseId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+    this._pulseId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 750, () => {
       this._pulseBig = !this._pulseBig;
-      const s = this._pulseBig ? 1.5 : 1.0;
+      const s = this._pulseBig ? 2.2 : 1.0;
       this._symbol.ease({
-        scale_x: s, scale_y: s, duration: 550,
+        scale_x: s, scale_y: s, duration: 700,
         mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
       });
       return GLib.SOURCE_CONTINUE;
