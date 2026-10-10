@@ -67,6 +67,7 @@ export default async ({ client, serverUrl }) => {
   const internalFetch = client?._client?.getConfig?.()?.fetch || null;
 
   const sessions = new Map();
+  const modes = new Map();
 
   function base(sessionId, extra) {
     return {
@@ -125,8 +126,27 @@ export default async ({ client, serverUrl }) => {
                 hook_event_name: "Notify",
                 message: note,
               }));
+          } else if (st === "error") {
+            await send(base(`opencode-${p.part.sessionID}`, {
+              hook_event_name: "Error",
+              message: (p.part.state?.error || "tool error"),
+            }));
           }
         }
+      } else if (t === "message.updated" && p.info?.sessionID) {
+        const m = p.info.role === "user" ? p.info.agent
+                : p.info.role === "assistant" ? p.info.mode : null;
+        const key = `opencode-${p.info.sessionID}`;
+        if (m && modes.get(key) !== m) {
+          modes.set(key, m);
+          remember(key, p.info.directory);
+          await send(base(key, { hook_event_name: "Mode", mode: m }));
+        }
+      } else if (t === "session.error" && p.sessionID) {
+        await send(base(`opencode-${p.sessionID}`, {
+          hook_event_name: "Error",
+          message: (p.error?.data?.message || p.error?.name || "error"),
+        }));
       } else if (t === "permission.asked" && p.id && p.sessionID) {
         const toolName =
           (p.permission || "").charAt(0).toUpperCase() + (p.permission || "").slice(1);

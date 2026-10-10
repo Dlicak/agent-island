@@ -15,9 +15,9 @@ Currently targets **OpenCode** on **GNOME Shell (Wayland)**.
 
 ```
 ┌───────────────────────────────┐
-│  ○  Agent Island              │
+│  ●  Agent Island              │
 │  ~/project        [opencode]  │
-│  ◐ working · Bash             │
+│  ● working · build · Bash     │
 │  [ Jump ]                     │
 └───────────────────────────────┘
 ```
@@ -37,12 +37,14 @@ Currently targets **OpenCode** on **GNOME Shell (Wayland)**.
   signal: `StateChanged(s)`. Also computes the process/tty/ancestor chain for
   "jump to terminal" and can focus the matching tmux pane.
 - **plugin/** — OpenCode plugin (`agent-island.js`). Maps OpenCode events to the
-  daemon protocol (`SessionStart`, `Busy`, `SessionIdle`, `PreToolUse`,
-  `PostToolUse`, `SessionEnd`, `PermissionRequest`, `Notify`) and forwards
+  daemon protocol (`SessionStart`, `Busy`, `SessionIdle`, `Mode`, `PreToolUse`,
+  `PostToolUse`, `Error`, `SessionEnd`, `PermissionRequest`, `Notify`) and forwards
   permission decisions back to OpenCode. `Busy`/`SessionIdle` come from the
   `session.status` event (`busy`/`retry`/`idle`) so the indicator stays in
   *working* for the whole time the agent is busy (thinking + tools), not only
-  while a tool runs. `Notify` is emitted on notable completed commands
+  while a tool runs. `Mode` carries the current agent (`build`/`plan`) so the bar
+  can colour *working* differently; `Error` comes from `session.error` and tool
+  failures. `Notify` is emitted on notable completed commands
   (e.g. `git commit`/`git push`, `gh pr`) to drive the silent bar toast.
 - **extension/** — GNOME Shell extension (`agent-island@lynx`). A panel
   indicator that reflects daemon state and renders the popup with actions.
@@ -86,9 +88,11 @@ ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-is
 
 ## Notes
 
-- Indicator states: `○` no session / offline · `●` session present, idle
-  (waiting for you) · `◐` working (thinking or running a tool) · `◉` needs
-  permission (pulses). The number is the session count.
+- Indicator states — a filled dot whose colour is the state: **grey** = daemon
+  offline / no session, **white** = idle (nothing happening), **blue** = working
+  (build), **orange** = working (plan), **violet** = waiting for you
+  (permission / question, pulses), **red** = error. The number is the session
+  count.
 - A silent toast (green text in the bar, ~4s) appears for notable completed
   commands recognised by the plugin (`git commit`, `git push`, `git merge`,
   `git rebase`, `gh pr create/merge`), e.g. `✓ commit 1a2b3c4`.

@@ -14,8 +14,8 @@ const BUS_NAME = 'org.agentisland.Daemon';
 const OBJ_PATH = '/org/agentisland/Daemon';
 const IFACE = 'org.agentisland.Daemon';
 
-const SYMBOL = { idle: '○', working: '◐', waiting: '◉' };
-const LABEL = { idle: 'idle', working: 'working', waiting: 'needs permission' };
+const SYMBOL = { idle: '●', working: '●', waiting: '●', error: '●' };
+const LABEL = { idle: 'idle', working: 'working', waiting: 'needs input', error: 'error' };
 
 const Indicator = GObject.registerClass(
 class AgentIslandIndicator extends PanelMenu.Button {
@@ -145,9 +145,11 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   _updatePanel() {
     const waiting = this._sessions.some(s => s.status === 'waiting');
+    const error = this._sessions.some(s => s.status === 'error');
     const working = this._sessions.some(s => s.status === 'working');
+    const plan = this._sessions.some(s => s.status === 'working' && (s.mode || '').toLowerCase() === 'plan');
     if (!this._online) {
-      this._symbol.text = '○';
+      this._symbol.text = SYMBOL.idle;
       this._symbol.style_class = 'agent-island-symbol ai-offline';
       this._count.text = '';
       this._stopPulse();
@@ -160,9 +162,19 @@ class AgentIslandIndicator extends PanelMenu.Button {
       this._stopPulse();
       return;
     }
-    this._symbol.text = waiting ? SYMBOL.waiting : working ? SYMBOL.working : '●';
-    this._symbol.style_class =
-      'agent-island-symbol ' + (waiting ? 'ai-waiting' : working ? 'ai-working' : 'ai-present');
+    this._symbol.text = SYMBOL.idle;
+    let cls;
+    if (waiting)
+      cls = 'ai-question';
+    else if (error)
+      cls = 'ai-error';
+    else if (plan)
+      cls = 'ai-plan';
+    else if (working)
+      cls = 'ai-working';
+    else
+      cls = 'ai-idle';
+    this._symbol.style_class = 'agent-island-symbol ' + cls;
     this._count.text = String(this._sessions.length);
 
     if (waiting)
@@ -223,7 +235,10 @@ class AgentIslandIndicator extends PanelMenu.Button {
         style_class: 'ai-title',
       }));
       content.add_child(new St.Label({
-        text: `${SYMBOL[s.status] || '•'} ${LABEL[s.status] || s.status}${s.tool ? ' · ' + s.tool : ''}`,
+        text: `${SYMBOL[s.status] || '●'} ${LABEL[s.status] || s.status}`
+          + `${s.mode ? ' · ' + s.mode : ''}`
+          + `${s.tool ? ' · ' + s.tool : ''}`
+          + `${s.status === 'error' && s.error ? ' · ' + s.error : ''}`,
         style_class: 'ai-sub',
       }));
 

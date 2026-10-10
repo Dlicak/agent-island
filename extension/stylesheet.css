@@ -12,10 +12,7 @@
 }
 
 .ai-idle {
-  color: #9a9996;
-}
-
-.ai-present {
+  color: #ffffff;
 }
 
 .ai-count {
@@ -33,7 +30,15 @@
   color: #3584e4;
 }
 
-.ai-waiting {
+.ai-plan {
+  color: #e66100;
+}
+
+.ai-question {
+  color: #9141ac;
+}
+
+.ai-error {
   color: #e01b24;
 }
 

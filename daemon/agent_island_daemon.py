@@ -214,16 +214,22 @@ class Daemon(dbus.service.Object):
                     if msg.get("cwd"):
                         sess["cwd"] = msg.get("cwd")
                     sess.update({"status": "idle", "tool": None, "permission": None,
-                                 "busy": False})
+                                 "busy": False, "error": None})
+                elif hook == "Mode":
+                    if msg.get("mode"):
+                        sess["mode"] = msg.get("mode")
                 elif hook == "Busy":
                     sess["busy"] = True
+                    sess["error"] = None
                     if sess.get("status") != "waiting":
                         sess["status"] = "working"
                 elif hook == "SessionIdle":
                     sess["busy"] = False
+                    sess["error"] = None
                     if sess.get("status") != "waiting":
                         sess.update({"status": "idle", "tool": None})
                 elif hook == "PreToolUse":
+                    sess["error"] = None
                     sess.update({"status": "working", "tool": msg.get("tool_name")})
                 elif hook == "PostToolUse":
                     sess["tool"] = None
@@ -239,6 +245,9 @@ class Daemon(dbus.service.Object):
                             "patterns": (msg.get("tool_input") or {}).get("patterns", []),
                         },
                     })
+                elif hook == "Error":
+                    sess["status"] = "error"
+                    sess["error"] = msg.get("message") or "error"
                 elif hook == "Heartbeat":
                     sess.setdefault("status", "idle")
                     if msg.get("cwd") and not sess.get("cwd"):
