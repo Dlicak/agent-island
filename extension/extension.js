@@ -24,15 +24,18 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._sessions = [];
     this._online = false;
 
-    const box = new St.BoxLayout({
+    this._box = new St.BoxLayout({
       style_class: 'agent-island-box',
       y_align: Clutter.ActorAlign.CENTER,
     });
     this._symbol = new St.Label({ text: '○', y_align: Clutter.ActorAlign.CENTER });
     this._count = new St.Label({ text: '', y_align: Clutter.ActorAlign.CENTER });
-    box.add_child(this._symbol);
-    box.add_child(this._count);
-    this.add_child(box);
+    this._box.add_child(this._symbol);
+    this._box.add_child(this._count);
+    this.add_child(this._box);
+
+    this._pulseId = null;
+    this._pulseDim = true;
 
     this._proxy = new Gio.DBusProxy({
       g_connection: Gio.DBus.session,
@@ -102,12 +105,45 @@ class AgentIslandIndicator extends PanelMenu.Button {
       this._symbol.text = '○';
       this._symbol.style_class = 'agent-island-symbol ai-offline';
       this._count.text = '';
+      this._stopPulse();
       return;
     }
     this._symbol.text = waiting ? SYMBOL.waiting : working ? SYMBOL.working : SYMBOL.idle;
     this._symbol.style_class =
       'agent-island-symbol ' + (waiting ? 'ai-waiting' : working ? 'ai-working' : 'ai-idle');
     this._count.text = this._sessions.length ? String(this._sessions.length) : '';
+
+    if (waiting)
+      this._startPulse();
+    else
+      this._stopPulse();
+  }
+
+  _startPulse() {
+    if (this._pulseId || !this._box)
+      return;
+    this._pulseDim = true;
+    this._box.ease({
+      opacity: 90, duration: 550, mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
+    });
+    this._pulseId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 600, () => {
+      this._pulseDim = !this._pulseDim;
+      this._box.ease({
+        opacity: this._pulseDim ? 90 : 255,
+        duration: 550,
+        mode: Clutter.AnimationMode.EASE_IN_OUT_SINE,
+      });
+      return GLib.SOURCE_CONTINUE;
+    });
+  }
+
+  _stopPulse() {
+    if (this._pulseId) {
+      GLib.source_remove(this._pulseId);
+      this._pulseId = null;
+    }
+    if (this._box)
+      this._box.ease({ opacity: 255, duration: 200 });
   }
 
   _basename(p) {
@@ -206,6 +242,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
   }
 
   destroy() {
+    this._stopPulse();
     if (this._proxy) {
       if (this._signalId)
         this._proxy.disconnect(this._signalId);

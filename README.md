@@ -4,6 +4,8 @@ A small "island" in the GNOME top bar that shows what your AI coding agent is
 doing and lets you act on it without leaving the current app:
 
 - **status** of every running agent session (idle / working / needs permission),
+- **pulse** — the indicator gently pulses (no sound) while a session is waiting
+  for permission, so the prompt is noticeable without audio,
 - **Jump** — raise the terminal window running the session,
 - **Allow / Always / Deny** — answer a permission prompt straight from the bar.
 
