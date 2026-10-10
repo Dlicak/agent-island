@@ -75,6 +75,58 @@ mkdir -p ~/.config/opencode/plugins
 ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-island.js
 ```
 
+## Other agents
+
+The daemon speaks a single neutral protocol, so any agent that can run a small
+hook can feed the island. The OpenCode plugin and the Claude Code hook in
+`hooks/` are both thin translators to this protocol.
+
+### Socket protocol
+
+Connect to `$XDG_RUNTIME_DIR/agent-island.sock` and send **one** JSON object:
+
+| field | required | meaning |
+|---|---|---|
+| `session_id` | yes | stable id, namespaced per agent (e.g. `claude-<id>`) |
+| `hook_event_name` | yes | `SessionStart` \| `PreToolUse` \| `PostToolUse` \| `SessionEnd` \| `PermissionRequest` |
+| `_source` | yes | agent name shown in the island (`opencode`, `claude`, …) |
+| `_ppid` | yes | pid of the agent process (used to find its terminal) |
+| `cwd` | no | working directory |
+| `tool_name` | no | tool being used |
+| `_opencode_request_id` | for `PermissionRequest` | id correlating the request/reply |
+
+For a `PermissionRequest` the daemon **keeps the connection open** and replies
+with the decision:
+
+```json
+{"hookSpecificOutput": {"decision": {"behavior": "allow"}}}
+```
+
+`behavior` is `allow`, `deny` or `always`. On timeout the daemon closes the
+connection (the caller should then fall back to asking the user).
+
+### Claude Code
+
+`hooks/claude-code.py` maps Claude Code hooks to the protocol. Add to
+`~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "~/agent-island/hooks/claude-code.py"}]}],
+    "SessionEnd":   [{"hooks": [{"type": "command", "command": "~/agent-island/hooks/claude-code.py"}]}],
+    "PreToolUse":   [{"hooks": [{"type": "command", "command": "~/agent-island/hooks/claude-code.py"}]}],
+    "PostToolUse":  [{"hooks": [{"type": "command", "command": "~/agent-island/hooks/claude-code.py"}]}],
+    "Stop":         [{"hooks": [{"type": "command", "command": "~/agent-island/hooks/claude-code.py"}]}]
+  }
+}
+```
+
+By default the hook only mirrors status. To route every `PreToolUse` through the
+island's Allow/Deny buttons, set `AGENT_ISLAND_GATE=1` in the hook environment
+(the hook then returns Claude Code a `permissionDecision`). Without a reply it
+returns `ask`, so it never silently approves.
+
 ## Notes
 
 - The daemon keeps session state in memory; a daemon restart (e.g. on logout)
