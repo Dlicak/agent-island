@@ -1,0 +1,7 @@
+{
+  "uuid": "agent-island@lynx",
+  "name": "Agent Island",
+  "description": "A living island in the top bar for your AI coding agents (OpenCode): status, jump-to-terminal and permission approval.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "version": 1
+}

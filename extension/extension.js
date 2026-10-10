@@ -1,0 +1,235 @@
+import GObject from 'gi://GObject';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import St from 'gi://St';
+import Clutter from 'gi://Clutter';
+import Shell from 'gi://Shell';
+
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+
+const BUS_NAME = 'org.agentisland.Daemon';
+const OBJ_PATH = '/org/agentisland/Daemon';
+const IFACE = 'org.agentisland.Daemon';
+
+const SYMBOL = { idle: '○', working: '◐', waiting: '◉' };
+const LABEL = { idle: 'idle', working: 'working', waiting: 'needs permission' };
+
+const Indicator = GObject.registerClass(
+class AgentIslandIndicator extends PanelMenu.Button {
+  _init() {
+    super._init(0.5, 'Agent Island');
+    this._sessions = [];
+    this._online = false;
+
+    const box = new St.BoxLayout({
+      style_class: 'agent-island-box',
+      y_align: Clutter.ActorAlign.CENTER,
+    });
+    this._symbol = new St.Label({ text: '○', y_align: Clutter.ActorAlign.CENTER });
+    this._count = new St.Label({ text: '', y_align: Clutter.ActorAlign.CENTER });
+    box.add_child(this._symbol);
+    box.add_child(this._count);
+    this.add_child(box);
+
+    this._proxy = new Gio.DBusProxy({
+      g_connection: Gio.DBus.session,
+      g_name: BUS_NAME,
+      g_object_path: OBJ_PATH,
+      g_interface_name: IFACE,
+      g_flags: Gio.DBusProxyFlags.DO_NOT_AUTO_START,
+    });
+    this._proxy.init_async(GLib.PRIORITY_DEFAULT, null, (proxy, res) => {
+      try { proxy.init_finish(res); } catch (e) { logError(e); }
+      this._sync();
+    });
+
+    this._signalId = this._proxy.connect('g-signal', (proxy, sender, signal, params) => {
+      if (signal !== 'StateChanged')
+        return;
+      try {
+        const state = JSON.parse(params.deep_unpack()[0]);
+        this._sessions = state.sessions || [];
+        this._updatePanel();
+        this._rebuildMenu();
+      } catch (e) { logError(e); }
+    });
+
+    this._ownerId = this._proxy.connect('notify::g-name-owner', () => this._sync());
+
+    this.menu.connect('open-state-changed', (menu, open) => {
+      if (open)
+        this._refresh();
+    });
+
+    this._rebuildMenu();
+    this._updatePanel();
+  }
+
+  _sync() {
+    this._online = !!this._proxy.g_name_owner;
+    if (this._online)
+      this._refresh();
+    else {
+      this._sessions = [];
+      this._updatePanel();
+      this._rebuildMenu();
+    }
+  }
+
+  _refresh() {
+    if (!this._online) {
+      this._rebuildMenu();
+      return;
+    }
+    this._proxy.call('GetState', null, Gio.DBusCallFlags.NONE, -1, null, (proxy, res) => {
+      try {
+        const reply = proxy.call_finish(res);
+        const state = JSON.parse(reply.deep_unpack()[0]);
+        this._sessions = state.sessions || [];
+        this._updatePanel();
+        this._rebuildMenu();
+      } catch (e) { logError(e); }
+    });
+  }
+
+  _updatePanel() {
+    const waiting = this._sessions.some(s => s.status === 'waiting');
+    const working = this._sessions.some(s => s.status === 'working');
+    if (!this._online) {
+      this._symbol.text = '○';
+      this._symbol.style_class = 'agent-island-symbol ai-offline';
+      this._count.text = '';
+      return;
+    }
+    this._symbol.text = waiting ? SYMBOL.waiting : working ? SYMBOL.working : SYMBOL.idle;
+    this._symbol.style_class =
+      'agent-island-symbol ' + (waiting ? 'ai-waiting' : working ? 'ai-working' : 'ai-idle');
+    this._count.text = this._sessions.length ? String(this._sessions.length) : '';
+  }
+
+  _basename(p) {
+    if (!p)
+      return '';
+    const parts = p.replace(/\/+$/, '').split('/');
+    return parts[parts.length - 1] || p;
+  }
+
+  _rebuildMenu() {
+    this.menu.removeAll();
+    if (!this._online) {
+      this.menu.addMenuItem(new PopupMenu.PopupMenuItem('Agent Island: daemon offline', { reactive: false }));
+      return;
+    }
+    if (!this._sessions.length) {
+      this.menu.addMenuItem(new PopupMenu.PopupMenuItem('No agents running', { reactive: false }));
+      return;
+    }
+    for (const s of this._sessions) {
+      const item = new PopupMenu.PopupBaseMenuItem({ reactive: false, style_class: 'ai-item' });
+      const content = new St.BoxLayout({ vertical: true, style_class: 'ai-item-box' });
+      content.add_child(new St.Label({
+        text: `${this._basename(s.cwd) || s.agent}  [${s.agent}]`,
+        style_class: 'ai-title',
+      }));
+      content.add_child(new St.Label({
+        text: `${SYMBOL[s.status] || '•'} ${LABEL[s.status] || s.status}${s.tool ? ' · ' + s.tool : ''}`,
+        style_class: 'ai-sub',
+      }));
+
+      const actions = new St.BoxLayout({ style_class: 'ai-actions' });
+      actions.add_child(this._button('Jump', 'ai-btn', () => this._jump(s.pid)));
+
+      if (s.status === 'waiting' && s.permission) {
+        actions.add_child(this._button('Allow', 'ai-btn ai-allow', () => this._reply(s.permission.id, 'allow')));
+        actions.add_child(this._button('Always', 'ai-btn', () => this._reply(s.permission.id, 'always')));
+        actions.add_child(this._button('Deny', 'ai-btn ai-deny', () => this._reply(s.permission.id, 'deny')));
+      }
+      content.add_child(actions);
+      item.add_child(content);
+      this.menu.addMenuItem(item);
+    }
+  }
+
+  _button(text, styleClass, onClicked) {
+    const btn = new St.Button({ style_class: styleClass, child: new St.Label({ text }) });
+    btn.connect('clicked', onClicked);
+    return btn;
+  }
+
+  _jump(pid) {
+    if (!pid)
+      return;
+    this.menu.close();
+    this._proxy.call('Jump', new GLib.Variant('(i)', [pid]), Gio.DBusCallFlags.NONE, -1, null, (proxy, res) => {
+      try {
+        const reply = proxy.call_finish(res);
+        const info = JSON.parse(reply.deep_unpack()[0]);
+        this._raise(info.ancestors || []);
+      } catch (e) { logError(e); }
+    });
+  }
+
+  _reply(id, reply) {
+    if (!id)
+      return;
+    this._proxy.call('PermissionReply', new GLib.Variant('(ss)', [String(id), reply]), Gio.DBusCallFlags.NONE, -1, null, (proxy, res) => {
+      try { proxy.call_finish(res); } catch (e) { logError(e); }
+      this._refresh();
+    });
+  }
+
+  _raise(ancestorPids) {
+    const set = new Set(ancestorPids);
+    const tracker = Shell.WindowTracker.get_default();
+    let target = null;
+    for (const actor of global.get_window_actors()) {
+      const win = actor.meta_window;
+      if (!win || win.is_skip_taskbar())
+        continue;
+      const pids = [];
+      const pid = win.get_pid();
+      if (pid && pid > 0)
+        pids.push(pid);
+      const app = tracker.get_window_app(win);
+      if (app)
+        pids.push(...app.get_pids());
+      if (pids.some(p => set.has(p))) {
+        target = win;
+        break;
+      }
+    }
+    if (target)
+      Main.activateWindow(target, global.get_current_time());
+  }
+
+  destroy() {
+    if (this._proxy) {
+      if (this._signalId)
+        this._proxy.disconnect(this._signalId);
+      if (this._ownerId)
+        this._proxy.disconnect(this._ownerId);
+      this._proxy = null;
+    }
+    super.destroy();
+  }
+});
+
+export default class AgentIslandExtension extends Extension {
+  enable() {
+    console.log('[agent-island] enable');
+    this._indicator = new Indicator();
+    Main.panel.addToStatusArea('agent-island', this._indicator, 1, 'center');
+    console.log('[agent-island] indicator added');
+  }
+
+  disable() {
+    console.log('[agent-island] disable');
+    if (this._indicator) {
+      this._indicator.destroy();
+      this._indicator = null;
+    }
+  }
+}

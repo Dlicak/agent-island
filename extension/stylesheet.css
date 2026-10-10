@@ -1,0 +1,58 @@
+.agent-island-box {
+  spacing: 4px;
+  padding: 0 4px;
+}
+
+.agent-island-symbol {
+  font-size: 14px;
+}
+
+.ai-offline {
+  color: #9a9996;
+}
+
+.ai-idle {
+  color: #9a9996;
+}
+
+.ai-working {
+  color: #3584e4;
+}
+
+.ai-waiting {
+  color: #e01b24;
+}
+
+.ai-item-box {
+  spacing: 3px;
+  min-width: 250px;
+  padding: 2px 0;
+}
+
+.ai-title {
+  font-weight: bold;
+}
+
+.ai-sub {
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.ai-actions {
+  spacing: 6px;
+  padding-top: 3px;
+}
+
+.ai-btn {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  padding: 2px 10px;
+}
+
+.ai-allow {
+  background-color: rgba(38, 162, 105, 0.45);
+}
+
+.ai-deny {
+  background-color: rgba(224, 27, 36, 0.45);
+}

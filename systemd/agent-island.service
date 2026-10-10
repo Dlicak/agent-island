@@ -1,0 +1,12 @@
+[Unit]
+Description=Agent Island daemon (socket + D-Bus for AI-agent status)
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u %h/agent-island/daemon/agent_island_daemon.py
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target
