@@ -36,6 +36,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
     this._pulseId = null;
     this._pulseDim = true;
+    this._pollId = null;
 
     this._proxy = new Gio.DBusProxy({
       g_connection: Gio.DBus.session,
@@ -54,6 +55,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
         return;
       try {
         const state = JSON.parse(params.deep_unpack()[0]);
+        this._online = true;
         this._sessions = state.sessions || [];
         this._updatePanel();
         this._rebuildMenu();
@@ -61,6 +63,11 @@ class AgentIslandIndicator extends PanelMenu.Button {
     });
 
     this._ownerId = this._proxy.connect('notify::g-name-owner', () => this._sync());
+
+    this._pollId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 3, () => {
+      this._refresh();
+      return GLib.SOURCE_CONTINUE;
+    });
 
     this.menu.connect('open-state-changed', (menu, open) => {
       if (open)
@@ -72,29 +79,30 @@ class AgentIslandIndicator extends PanelMenu.Button {
   }
 
   _sync() {
-    this._online = !!this._proxy.g_name_owner;
-    if (this._online)
-      this._refresh();
-    else {
-      this._sessions = [];
-      this._updatePanel();
-      this._rebuildMenu();
-    }
+    this._refresh();
   }
 
   _refresh() {
-    if (!this._online) {
-      this._rebuildMenu();
-      return;
-    }
     this._proxy.call('GetState', null, Gio.DBusCallFlags.NONE, -1, null, (proxy, res) => {
+      let state = null;
       try {
         const reply = proxy.call_finish(res);
-        const state = JSON.parse(reply.deep_unpack()[0]);
+        state = JSON.parse(reply.deep_unpack()[0]);
+      } catch (e) {
+        state = null;
+      }
+      const wasOnline = this._online;
+      if (state) {
+        this._online = true;
         this._sessions = state.sessions || [];
-        this._updatePanel();
-        this._rebuildMenu();
-      } catch (e) { logError(e); }
+      } else {
+        this._online = false;
+        this._sessions = [];
+      }
+      if (wasOnline !== this._online)
+        console.log(`[agent-island] daemon online=${this._online}`);
+      this._updatePanel();
+      this._rebuildMenu();
     });
   }
 
@@ -243,6 +251,10 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   destroy() {
     this._stopPulse();
+    if (this._pollId) {
+      GLib.source_remove(this._pollId);
+      this._pollId = null;
+    }
     if (this._proxy) {
       if (this._signalId)
         this._proxy.disconnect(this._signalId);
