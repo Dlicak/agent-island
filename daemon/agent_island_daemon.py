@@ -194,6 +194,7 @@ class Daemon(dbus.service.Object):
             return
         hook = msg.get("hook_event_name")
         now = time.time()
+        created = False
         with self.lock:
             if hook == "SessionEnd":
                 self.sessions.pop(sid, None)
@@ -203,6 +204,7 @@ class Daemon(dbus.service.Object):
                     sess = {"id": sid, "agent": msg.get("_source", "agent"),
                             "started": now}
                     self.sessions[sid] = sess
+                    created = True
                 if msg.get("_ppid"):
                     sess["pid"] = msg.get("_ppid")
                 if hook == "SessionStart":
@@ -223,6 +225,10 @@ class Daemon(dbus.service.Object):
                             "patterns": (msg.get("tool_input") or {}).get("patterns", []),
                         },
                     })
+                elif hook == "Heartbeat":
+                    sess.setdefault("status", "idle")
+                    if msg.get("cwd") and not sess.get("cwd"):
+                        sess["cwd"] = msg.get("cwd")
                 sess["updated"] = now
                 pid = sess.get("pid")
                 if pid:
@@ -231,6 +237,8 @@ class Daemon(dbus.service.Object):
                     sess["proc"] = proc_name(pid)
                     if not sess.get("cwd"):
                         sess["cwd"] = cwd_of(pid)
+                if hook == "Heartbeat" and not created:
+                    return
         self._emit()
 
     def handle_permission(self, conn, msg):

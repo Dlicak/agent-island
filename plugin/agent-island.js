@@ -43,6 +43,8 @@ export default async ({ client, serverUrl }) => {
   const serverPort = serverUrl ? parseInt(serverUrl.port) || 4096 : 4096;
   const internalFetch = client?._client?.getConfig?.()?.fetch || null;
 
+  const sessions = new Map();
+
   function base(sessionId, extra) {
     return {
       session_id: sessionId,
@@ -52,6 +54,19 @@ export default async ({ client, serverUrl }) => {
       ...extra,
     };
   }
+
+  function remember(sessionId, cwd) {
+    if (!sessionId)
+      return;
+    sessions.set(sessionId, cwd || sessions.get(sessionId) || null);
+  }
+
+  const heartbeat = setInterval(() => {
+    for (const [sid, cwd] of sessions)
+      send(base(sid, { hook_event_name: "Heartbeat", cwd: cwd || undefined }));
+  }, 10000);
+  if (heartbeat.unref)
+    heartbeat.unref();
 
   return {
     event: async ({ event }) => {
@@ -90,6 +105,7 @@ export default async ({ client, serverUrl }) => {
           tool_input: { patterns: p.patterns || [] },
           _opencode_request_id: p.id,
         });
+        remember(mapped.session_id, null);
 
         if (internalFetch) {
           const resp = await sendAndWait(mapped);
@@ -111,7 +127,13 @@ export default async ({ client, serverUrl }) => {
         }
       }
 
-      if (mapped) await send(mapped);
+      if (mapped) {
+        if (mapped.hook_event_name === "SessionEnd")
+          sessions.delete(mapped.session_id);
+        else
+          remember(mapped.session_id, mapped.cwd);
+        await send(mapped);
+      }
     },
   };
 };

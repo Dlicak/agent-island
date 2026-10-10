@@ -80,7 +80,9 @@ ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-is
 ## Notes
 
 - The daemon keeps session state in memory; a daemon restart (e.g. on logout)
-  clears it until the next agent event arrives.
+  clears it until the next agent event arrives. The OpenCode plugin sends a
+  heartbeat every 10s, so live sessions reappear within a few seconds even if
+  OpenCode itself did not emit anything new.
 - The socket is created mode `0600` and lives in the per-user runtime dir.
 - GNOME Shell caches extension modules per session, so an edited `extension.js`
   only takes effect after re-login.
