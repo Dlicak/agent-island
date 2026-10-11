@@ -313,7 +313,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
       return;
     this._panelPhase = 0;
     this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
-      this._panelPhase += 0.042;
+      this._panelPhase += 0.084;
       const x = (this._panelPhase % (2 * Math.PI)) / (2 * Math.PI);
       const p = x < 0.5 ? x * 2 : (1 - x) * 2;
       this._paintPanelWave(p);
