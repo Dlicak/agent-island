@@ -271,12 +271,14 @@ class AgentIslandIndicator extends PanelMenu.Button {
     if (!this._barBloom) {
       this._barBloom = new St.Widget({ reactive: false });
       this._barBloom.set_style('border-radius: 24px;');
+      this._barBloom.add_effect(new Shell.BlurEffect({ radius: 22 }));
       this._barTint.add_child(this._barBloom);
     }
     this._barBloom.set_style(`background-color: ${halo}; border-radius: 24px;`);
     if (!this._barGlow) {
       this._barGlow = new St.Widget({ reactive: false });
       this._barGlow.set_style('border-radius: 24px;');
+      this._barGlow.add_effect(new Shell.BlurEffect({ radius: 8 }));
       this._barTint.add_child(this._barGlow);
     }
     this._barGlow.set_style(`background-color: ${core}; border-radius: 24px;`);
