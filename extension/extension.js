@@ -19,8 +19,12 @@ const LABEL = { idle: 'idle', working: 'working', waiting: 'needs input', error:
 const PANEL_RGB = {
   'ai-working': [53, 132, 228, 0],
   'ai-plan': [230, 97, 0, 0.72],
-  'ai-question': [145, 65, 172, 0.72],
-  'ai-error': [224, 27, 36, 0.72],
+  'ai-question': [0, 0, 0, 0.9],
+  'ai-error': [0, 0, 0, 0.9],
+};
+const GLOW_RGB = {
+  'ai-question': [178, 96, 208],
+  'ai-error': [240, 90, 96],
 };
 
 const Indicator = GObject.registerClass(
@@ -61,11 +65,14 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._pulseIn = true;
     this._panelTimer = null;
     this._panelBase = null;
-    this._panelPhase = 0;
+    this._panelGlow = false;
+    this._panelPulsing = false;
+    this._glowColor = null;
     this._barTint = null;
     this._barTintSizeId = null;
     this._barTintPosId = null;
     this._barGlow = null;
+    this._barBloom = null;
     this._pollId = null;
     this._toastId = null;
     this._lastNotify = 0;
@@ -233,7 +240,8 @@ class AgentIslandIndicator extends PanelMenu.Button {
       }
       this._ensureBarTint();
       this._paintPanel();
-      this._panelGlow = (cls === 'ai-question' || cls === 'ai-error');
+      this._glowColor = GLOW_RGB[cls] || null;
+      this._panelGlow = !!this._glowColor;
       if (this._panelGlow)
         this._startPanelGlow();
       else
@@ -254,23 +262,40 @@ class AgentIslandIndicator extends PanelMenu.Button {
   }
 
   _ensureGlow() {
-    if (this._barGlow || !this._barTint)
+    if (!this._barTint)
       return;
-    this._barGlow = new St.Widget({ reactive: false });
-    this._barGlow.set_style('background-color: rgba(255, 255, 255, 0.22); border-radius: 14px;');
-    this._barTint.add_child(this._barGlow);
+    const c = this._glowColor || [255, 255, 255];
+    const mix = (v, w) => Math.round(v + (255 - v) * w);
+    const halo = `rgba(${c[0]}, ${c[1]}, ${c[2]}, 1)`;
+    const core = `rgba(${mix(c[0], 0.5)}, ${mix(c[1], 0.5)}, ${mix(c[2], 0.5)}, 1)`;
+    if (!this._barBloom) {
+      this._barBloom = new St.Widget({ reactive: false });
+      this._barBloom.set_style('border-radius: 24px;');
+      this._barTint.add_child(this._barBloom);
+    }
+    this._barBloom.set_style(`background-color: ${halo}; border-radius: 24px;`);
+    if (!this._barGlow) {
+      this._barGlow = new St.Widget({ reactive: false });
+      this._barGlow.set_style('border-radius: 24px;');
+      this._barTint.add_child(this._barGlow);
+    }
+    this._barGlow.set_style(`background-color: ${core}; border-radius: 24px;`);
   }
 
-  _placeGlow(s) {
-    if (!this._barGlow || !this._barTint)
+  _applyPulse(t) {
+    if (!this._barTint || !this._barGlow || !this._barBloom)
       return;
     const w = this._barTint.width || global.screen_width;
     const h = this._barTint.height || Main.panel.height;
-    const t = (s + 1) / 2;
-    const bw = Math.round(Math.max(90, w * 0.3) * (0.6 + 0.55 * t));
-    this._barGlow.set_size(bw, h);
-    this._barGlow.set_position(Math.round((w - bw) / 2), 0);
-    this._barGlow.set_opacity(Math.round(70 + 170 * t));
+    const k = 0.82 + 0.28 * t;
+    const coreW = Math.round(Math.max(90, w * 0.3) * k);
+    const haloW = Math.round(Math.max(180, w * 0.6) * k);
+    this._barGlow.set_size(coreW, h);
+    this._barGlow.set_position(Math.round((w - coreW) / 2), 0);
+    this._barGlow.set_opacity(Math.round(110 + 120 * t));
+    this._barBloom.set_size(haloW, h);
+    this._barBloom.set_position(Math.round((w - haloW) / 2), 0);
+    this._barBloom.set_opacity(Math.round(18 + 75 * t));
   }
 
   _ensureBarTint() {
@@ -312,23 +337,24 @@ class AgentIslandIndicator extends PanelMenu.Button {
       this._barTint = null;
     }
     this._barGlow = null;
+    this._barBloom = null;
     try { Main.panel.set_style(null); } catch (e) {}
   }
 
   _startPanelGlow() {
-    if (this._panelTimer)
-      return;
-    this._panelPhase = 0;
     this._ensureGlow();
-    this._placeGlow(-1);
-    this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
-      this._panelPhase += 0.12;
-      this._placeGlow(Math.sin(this._panelPhase));
+    this._panelPulsing = true;
+    this._panelPhase = 0;
+    this._applyPulse(1);
+    this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 33, () => {
+      this._panelPhase += 0.075;
+      this._applyPulse((Math.sin(this._panelPhase) + 1) / 2);
       return GLib.SOURCE_CONTINUE;
     });
   }
 
   _stopPanelGlow() {
+    this._panelPulsing = false;
     if (this._panelTimer) {
       GLib.source_remove(this._panelTimer);
       this._panelTimer = null;
@@ -336,6 +362,10 @@ class AgentIslandIndicator extends PanelMenu.Button {
     if (this._barGlow) {
       try { this._barGlow.destroy(); } catch (e) {}
       this._barGlow = null;
+    }
+    if (this._barBloom) {
+      try { this._barBloom.destroy(); } catch (e) {}
+      this._barBloom = null;
     }
   }
 

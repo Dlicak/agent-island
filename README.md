@@ -94,12 +94,13 @@ ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-is
   offline / no session, **white** = idle (nothing happening), **blue** = working
   (build), **orange** = working (plan), **violet** = waiting for you
   (permission / question: the dot stays put and chevrons `» «` pulse inward
-  towards it), **red** = error. The top bar is tinted the same colour for the
-  attention states (plan = orange, waiting = violet, error = red); while working
-  (build) the bar is a plain translucent tint with no colour, and when idle or
-  offline it keeps its normal background. In the waiting and error states a
-  soft glow sits at the centre of the bar and pulses (growing/shrinking and
-  brightening/dimming). The tint is a translucent colour that lives
+  towards it), **red** = error. Plan (orange) tints the bar orange. For waiting
+  and error the bar turns black and a soft glow in the state colour pulses at
+  its centre (violet for waiting, red for error), with a wider dimmer halo for
+  bloom — a gentle grow/shrink and brighten/dim, not a flicker. While working
+  (build) the bar is a plain
+  translucent tint with no colour, and when idle or offline it keeps its normal
+  background. The tint is a translucent colour that lives
   on a separate layer placed behind the bar (below the panel box), so the
   backdrop shows through while the clock and status icons stay sharp. The
   drop-down menu has rounded, airy styling. The number is the session count.
