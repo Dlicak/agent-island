@@ -16,6 +16,12 @@ const IFACE = 'org.agentisland.Daemon';
 
 const SYMBOL = { idle: '●', working: '●', waiting: '●', error: '●' };
 const LABEL = { idle: 'idle', working: 'working', waiting: 'needs input', error: 'error' };
+const PANEL_COLOR = {
+  'ai-working': '#3584e4',
+  'ai-plan': '#e66100',
+  'ai-question': '#9141ac',
+  'ai-error': '#e01b24',
+};
 
 const Indicator = GObject.registerClass(
 class AgentIslandIndicator extends PanelMenu.Button {
@@ -161,6 +167,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
       this._symbol.text = SYMBOL.idle;
       this._symbol.style_class = 'agent-island-symbol ai-offline';
       this._count.text = '';
+      this._setPanel(null);
       this._stopPulse();
       return;
     }
@@ -168,6 +175,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
       this._symbol.text = SYMBOL.idle;
       this._symbol.style_class = 'agent-island-symbol ai-idle';
       this._count.text = '';
+      this._setPanel(null);
       this._stopPulse();
       return;
     }
@@ -187,11 +195,19 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._arrowL.style_class = 'agent-island-arrow ' + cls;
     this._arrowR.style_class = 'agent-island-arrow ' + cls;
     this._count.text = String(this._sessions.length);
+    this._setPanel(cls);
 
     if (waiting)
       this._startPulse();
     else
       this._stopPulse();
+  }
+
+  _setPanel(cls) {
+    try {
+      const c = cls ? PANEL_COLOR[cls] : null;
+      Main.panel.set_style(c ? `background-color: ${c};` : null);
+    } catch (e) { logError(e); }
   }
 
   _startPulse() {
@@ -337,6 +353,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   destroy() {
     this._stopPulse();
+    this._setPanel(null);
     if (this._pollId) {
       GLib.source_remove(this._pollId);
       this._pollId = null;
