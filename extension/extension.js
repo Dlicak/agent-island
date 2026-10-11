@@ -63,7 +63,10 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._panelTimer = null;
     this._panelBase = null;
     this._panelPhase = 0;
-    this._panelBlur = null;
+    this._barTint = null;
+    this._barTintBlur = null;
+    this._barTintSizeId = null;
+    this._barTintPosId = null;
     this._pollId = null;
     this._toastId = null;
     this._lastNotify = 0;
@@ -242,23 +245,55 @@ class AgentIslandIndicator extends PanelMenu.Button {
   _paintPanel(f) {
     const c = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
     const [r, g, b] = this._panelBase;
-    Main.panel.set_style(`background-color: rgba(${c(r)}, ${c(g)}, ${c(b)}, ${PANEL_ALPHA});`);
+    const color = `rgba(${c(r)}, ${c(g)}, ${c(b)}, ${PANEL_ALPHA})`;
+    if (this._barTint)
+      this._barTint.set_style(`background-color: ${color};`);
+    else
+      Main.panel.set_style(`background-color: ${color};`);
   }
 
   _ensurePanelBlur() {
-    if (this._panelBlur)
+    if (this._barTint)
       return;
     try {
-      this._panelBlur = new Shell.BlurEffect({ radius: 24, brightness: 0.9 });
-      Main.panel.add_effect_with_name('agent-island-blur', this._panelBlur);
-    } catch (e) { this._panelBlur = null; logError(e); }
+      const pb = Main.layoutManager.panelBox;
+      const ui = Main.layoutManager.uiGroup;
+      this._barTint = new St.Widget({ reactive: false });
+      this._barTintBlur = new Shell.BlurEffect({ radius: 24, brightness: 0.85 });
+      this._barTint.add_effect(this._barTintBlur);
+      ui.insert_child_below(this._barTint, pb);
+      this._syncBarTint();
+      this._barTintSizeId = pb.connect('notify::size', () => this._syncBarTint());
+      this._barTintPosId = pb.connect('notify::position', () => this._syncBarTint());
+      Main.panel.set_style('background-color: transparent;');
+    } catch (e) { this._barTint = null; logError(e); }
+  }
+
+  _syncBarTint() {
+    if (!this._barTint)
+      return;
+    const pb = Main.layoutManager.panelBox;
+    const w = pb.width || Main.panel.width || global.screen_width;
+    const h = pb.height || Main.panel.height;
+    this._barTint.set_position(pb.x, pb.y);
+    this._barTint.set_size(w, h);
   }
 
   _removePanelBlur() {
-    if (!this._panelBlur)
-      return;
-    try { Main.panel.remove_effect_by_name('agent-island-blur'); } catch (e) {}
-    this._panelBlur = null;
+    if (this._barTintSizeId) {
+      try { Main.layoutManager.panelBox.disconnect(this._barTintSizeId); } catch (e) {}
+      this._barTintSizeId = null;
+    }
+    if (this._barTintPosId) {
+      try { Main.layoutManager.panelBox.disconnect(this._barTintPosId); } catch (e) {}
+      this._barTintPosId = null;
+    }
+    if (this._barTint) {
+      try { this._barTint.destroy(); } catch (e) {}
+      this._barTint = null;
+      this._barTintBlur = null;
+    }
+    try { Main.panel.set_style(null); } catch (e) {}
   }
 
   _startPanelBreath() {

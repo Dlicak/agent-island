@@ -97,8 +97,10 @@ ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-is
   towards it), **red** = error. The top bar is tinted the same colour, except
   when idle/offline, when it keeps its normal background; in the waiting and
   error states the bar colour also breathes (pulses lighter/darker). The tint
-  is translucent with a frosted-glass blur, and the drop-down menu has rounded,
-  airy styling. The number is the session
+  is translucent with a frosted-glass blur: it lives on a separate layer placed
+  behind the bar (a `Shell.BlurEffect` on a background actor below the panel),
+  so the backdrop is blurred while the clock and status icons stay sharp. The
+  drop-down menu has rounded, airy styling. The number is the session
   count.
 - A silent toast (green text in the bar, ~4s) appears for notable completed
   commands recognised by the plugin (`git commit`, `git push`, `git merge`,
