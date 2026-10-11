@@ -98,8 +98,8 @@ ln -sf ~/agent-island/plugin/agent-island.js ~/.config/opencode/plugins/agent-is
   attention states (plan = orange, waiting = violet, error = red); while working
   (build) the bar is a plain translucent tint with no colour, and when idle or
   offline it keeps its normal background. In the waiting and error states a
-  wave of light travels along the bar (a bright band sweeps left-to-right and
-  back, like a sunrise and sunset). The tint is a translucent colour that lives
+  soft glow sits at the centre of the bar and pulses (growing/shrinking and
+  brightening/dimming). The tint is a translucent colour that lives
   on a separate layer placed behind the bar (below the panel box), so the
   backdrop shows through while the clock and status icons stay sharp. The
   drop-down menu has rounded, airy styling. The number is the session count.

@@ -65,7 +65,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._barTint = null;
     this._barTintSizeId = null;
     this._barTintPosId = null;
-    this._barWave = null;
+    this._barGlow = null;
     this._pollId = null;
     this._toastId = null;
     this._lastNotify = 0;
@@ -226,18 +226,18 @@ class AgentIslandIndicator extends PanelMenu.Button {
     try {
       this._panelBase = cls ? PANEL_RGB[cls] : null;
       if (!this._panelBase) {
-        this._stopPanelWave();
+        this._stopPanelGlow();
         this._removeBarTint();
         Main.panel.set_style(null);
         return;
       }
       this._ensureBarTint();
       this._paintPanel();
-      this._panelWave = (cls === 'ai-question' || cls === 'ai-error');
-      if (this._panelWave)
-        this._startPanelWave();
+      this._panelGlow = (cls === 'ai-question' || cls === 'ai-error');
+      if (this._panelGlow)
+        this._startPanelGlow();
       else
-        this._stopPanelWave();
+        this._stopPanelGlow();
     } catch (e) { logError(e); }
   }
 
@@ -253,22 +253,24 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._setTintStyle(`background-color: rgba(${r}, ${g}, ${b}, ${a});`);
   }
 
-  _ensureWave() {
-    if (this._barWave || !this._barTint)
+  _ensureGlow() {
+    if (this._barGlow || !this._barTint)
       return;
-    this._barWave = new St.Widget({ reactive: false });
-    this._barWave.set_style('background-color: rgba(255, 255, 255, 0.28); border-radius: 7px; background-image: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 100%);');
-    this._barTint.add_child(this._barWave);
+    this._barGlow = new St.Widget({ reactive: false });
+    this._barGlow.set_style('background-color: rgba(255, 255, 255, 0.22); border-radius: 14px;');
+    this._barTint.add_child(this._barGlow);
   }
 
-  _placeWave(p) {
-    if (!this._barWave || !this._barTint)
+  _placeGlow(s) {
+    if (!this._barGlow || !this._barTint)
       return;
     const w = this._barTint.width || global.screen_width;
     const h = this._barTint.height || Main.panel.height;
-    const bw = Math.max(60, Math.round(w * 0.18));
-    this._barWave.set_size(bw, h);
-    this._barWave.set_position(Math.round(p * (w - bw)), 0);
+    const t = (s + 1) / 2;
+    const bw = Math.round(Math.max(90, w * 0.3) * (0.6 + 0.55 * t));
+    this._barGlow.set_size(bw, h);
+    this._barGlow.set_position(Math.round((w - bw) / 2), 0);
+    this._barGlow.set_opacity(Math.round(70 + 170 * t));
   }
 
   _ensureBarTint() {
@@ -309,33 +311,31 @@ class AgentIslandIndicator extends PanelMenu.Button {
       try { this._barTint.destroy(); } catch (e) {}
       this._barTint = null;
     }
-    this._barWave = null;
+    this._barGlow = null;
     try { Main.panel.set_style(null); } catch (e) {}
   }
 
-  _startPanelWave() {
+  _startPanelGlow() {
     if (this._panelTimer)
       return;
     this._panelPhase = 0;
-    this._ensureWave();
-    this._placeWave(0);
+    this._ensureGlow();
+    this._placeGlow(-1);
     this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
-      this._panelPhase += 0.084;
-      const x = (this._panelPhase % (2 * Math.PI)) / (2 * Math.PI);
-      const p = x < 0.5 ? x * 2 : (1 - x) * 2;
-      this._placeWave(p);
+      this._panelPhase += 0.12;
+      this._placeGlow(Math.sin(this._panelPhase));
       return GLib.SOURCE_CONTINUE;
     });
   }
 
-  _stopPanelWave() {
+  _stopPanelGlow() {
     if (this._panelTimer) {
       GLib.source_remove(this._panelTimer);
       this._panelTimer = null;
     }
-    if (this._barWave) {
-      try { this._barWave.destroy(); } catch (e) {}
-      this._barWave = null;
+    if (this._barGlow) {
+      try { this._barGlow.destroy(); } catch (e) {}
+      this._barGlow = null;
     }
   }
 
@@ -482,7 +482,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   destroy() {
     this._stopPulse();
-    this._stopPanelWave();
+    this._stopPanelGlow();
     this._setPanel(null);
     if (this._pollId) {
       GLib.source_remove(this._pollId);
