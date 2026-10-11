@@ -17,12 +17,11 @@ const IFACE = 'org.agentisland.Daemon';
 const SYMBOL = { idle: '●', working: '●', waiting: '●', error: '●' };
 const LABEL = { idle: 'idle', working: 'working', waiting: 'needs input', error: 'error' };
 const PANEL_RGB = {
-  'ai-working': [53, 132, 228],
-  'ai-plan': [230, 97, 0],
-  'ai-question': [145, 65, 172],
-  'ai-error': [224, 27, 36],
+  'ai-working': [53, 132, 228, 0],
+  'ai-plan': [230, 97, 0, 0.72],
+  'ai-question': [145, 65, 172, 0.72],
+  'ai-error': [224, 27, 36, 0.72],
 };
-const PANEL_ALPHA = 0.72;
 
 const Indicator = GObject.registerClass(
 class AgentIslandIndicator extends PanelMenu.Button {
@@ -244,8 +243,8 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   _paintPanel(f) {
     const c = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
-    const [r, g, b] = this._panelBase;
-    const color = `rgba(${c(r)}, ${c(g)}, ${c(b)}, ${PANEL_ALPHA})`;
+    const [r, g, b, a] = this._panelBase;
+    const color = `rgba(${c(r)}, ${c(g)}, ${c(b)}, ${a})`;
     if (this._barTint)
       this._barTint.set_style(`background-color: ${color};`);
     else
@@ -301,9 +300,9 @@ class AgentIslandIndicator extends PanelMenu.Button {
       return;
     this._panelPhase = 0;
     this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
-      this._panelPhase += 0.1;
+      this._panelPhase += 0.03;
       const t = (Math.sin(this._panelPhase) + 1) / 2;
-      this._paintPanel(0.7 + 0.6 * t);
+      this._paintPanel(0.85 + 0.3 * t);
       return GLib.SOURCE_CONTINUE;
     });
   }
