@@ -58,6 +58,9 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
     this._pulseId = null;
     this._pulseIn = true;
+    this._panelTimer = null;
+    this._panelBase = null;
+    this._panelPhase = 0;
     this._pollId = null;
     this._toastId = null;
     this._lastNotify = 0;
@@ -205,9 +208,47 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   _setPanel(cls) {
     try {
-      const c = cls ? PANEL_COLOR[cls] : null;
-      Main.panel.set_style(c ? `background-color: ${c};` : null);
+      this._panelBase = cls ? PANEL_COLOR[cls] : null;
+      if (!this._panelBase) {
+        this._stopPanelBreath();
+        Main.panel.set_style(null);
+        return;
+      }
+      this._panelBreathe = (cls === 'ai-question' || cls === 'ai-error');
+      if (this._panelBreathe) {
+        Main.panel.set_style(`background-color: ${this._panelBase};`);
+        this._startPanelBreath();
+      } else {
+        this._stopPanelBreath();
+        Main.panel.set_style(`background-color: ${this._panelBase};`);
+      }
     } catch (e) { logError(e); }
+  }
+
+  _startPanelBreath() {
+    if (this._panelTimer)
+      return;
+    this._panelPhase = 0;
+    this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
+      this._panelPhase += 0.1;
+      const t = (Math.sin(this._panelPhase) + 1) / 2;
+      Main.panel.set_style(`background-color: ${this._shade(this._panelBase, t)};`);
+      return GLib.SOURCE_CONTINUE;
+    });
+  }
+
+  _stopPanelBreath() {
+    if (this._panelTimer) {
+      GLib.source_remove(this._panelTimer);
+      this._panelTimer = null;
+    }
+  }
+
+  _shade(base, t) {
+    const f = 0.7 + 0.6 * t;
+    const h = (s) => parseInt(base.slice(s, s + 2), 16);
+    const hex = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+    return `#${hex(h(1) * f)}${hex(h(3) * f)}${hex(h(5) * f)}`;
   }
 
   _startPulse() {
@@ -353,6 +394,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   destroy() {
     this._stopPulse();
+    this._stopPanelBreath();
     this._setPanel(null);
     if (this._pollId) {
       GLib.source_remove(this._pollId);
