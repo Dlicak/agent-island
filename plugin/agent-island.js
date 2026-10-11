@@ -1,6 +1,7 @@
 import { connect } from "net";
 import { tmpdir } from "os";
 import { join } from "path";
+import { execSync } from "child_process";
 
 const RUNTIME = process.env.XDG_RUNTIME_DIR || join(tmpdir());
 const SOCKET = join(RUNTIME, "agent-island.sock");
@@ -69,6 +70,18 @@ export default async ({ client, serverUrl }) => {
   const sessions = new Map();
   const modes = new Map();
 
+  function shortHash(sid) {
+    try {
+      const cwd = sessions.get(sid);
+      if (!cwd)
+        return null;
+      const r = execSync("git rev-parse --short HEAD", { cwd, timeout: 3000, encoding: "utf8" }).trim();
+      return r || null;
+    } catch {
+      return null;
+    }
+  }
+
   function base(sessionId, extra) {
     return {
       session_id: sessionId,
@@ -120,7 +133,12 @@ export default async ({ client, serverUrl }) => {
             tool_name: toolName,
           });
           if (st === "completed") {
-            const note = notable(p.part);
+            let note = notable(p.part);
+            if (note && note.startsWith("✓ commit") && !/\b[0-9a-f]{7,40}\b/.test(note)) {
+              const hash = shortHash(`opencode-${p.part.sessionID}`);
+              if (hash)
+                note += ` ${hash}`;
+            }
             if (note)
               await send(base(`opencode-${p.part.sessionID}`, {
                 hook_event_name: "Notify",
