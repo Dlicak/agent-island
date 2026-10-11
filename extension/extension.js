@@ -347,7 +347,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._panelPhase = 0;
     this._applyPulse(1);
     this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 33, () => {
-      this._panelPhase += 0.075;
+      this._panelPhase += 0.13;
       this._applyPulse((Math.sin(this._panelPhase) + 1) / 2);
       return GLib.SOURCE_CONTINUE;
     });
