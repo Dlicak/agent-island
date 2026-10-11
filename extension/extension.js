@@ -65,6 +65,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._barTint = null;
     this._barTintSizeId = null;
     this._barTintPosId = null;
+    this._barWave = null;
     this._pollId = null;
     this._toastId = null;
     this._lastNotify = 0;
@@ -231,13 +232,12 @@ class AgentIslandIndicator extends PanelMenu.Button {
         return;
       }
       this._ensureBarTint();
+      this._paintPanel();
       this._panelWave = (cls === 'ai-question' || cls === 'ai-error');
       if (this._panelWave)
         this._startPanelWave();
-      else {
+      else
         this._stopPanelWave();
-        this._paintPanel();
-      }
     } catch (e) { logError(e); }
   }
 
@@ -253,18 +253,22 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._setTintStyle(`background-color: rgba(${r}, ${g}, ${b}, ${a});`);
   }
 
-  _paintPanelWave(p) {
-    const [r, g, b, a] = this._panelBase;
-    const mix = (v, w) => Math.round(v + (255 - v) * w);
-    const base = `rgba(${r}, ${g}, ${b}, ${a})`;
-    const glow = `rgba(${mix(r, 0.35)}, ${mix(g, 0.35)}, ${mix(b, 0.35)}, ${a})`;
-    const peak = `rgba(${mix(r, 0.85)}, ${mix(g, 0.85)}, ${mix(b, 0.85)}, ${a})`;
-    const pct = Math.round(p * 100);
-    const g0 = Math.max(0, pct - 20);
-    const g1 = Math.max(0, pct - 7);
-    const g2 = Math.min(100, pct + 7);
-    const g3 = Math.min(100, pct + 20);
-    this._setTintStyle(`background-color: ${base}; background-image: linear-gradient(to right, ${base} ${g0}%, ${glow} ${g1}%, ${peak} ${pct}%, ${glow} ${g2}%, ${base} ${g3}%);`);
+  _ensureWave() {
+    if (this._barWave || !this._barTint)
+      return;
+    this._barWave = new St.Widget({ reactive: false });
+    this._barWave.set_style('background-color: rgba(255, 255, 255, 0.28); border-radius: 7px; background-image: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.55) 50%, rgba(255, 255, 255, 0) 100%);');
+    this._barTint.add_child(this._barWave);
+  }
+
+  _placeWave(p) {
+    if (!this._barWave || !this._barTint)
+      return;
+    const w = this._barTint.width || global.screen_width;
+    const h = this._barTint.height || Main.panel.height;
+    const bw = Math.max(60, Math.round(w * 0.18));
+    this._barWave.set_size(bw, h);
+    this._barWave.set_position(Math.round(p * (w - bw)), 0);
   }
 
   _ensureBarTint() {
@@ -305,6 +309,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
       try { this._barTint.destroy(); } catch (e) {}
       this._barTint = null;
     }
+    this._barWave = null;
     try { Main.panel.set_style(null); } catch (e) {}
   }
 
@@ -312,11 +317,13 @@ class AgentIslandIndicator extends PanelMenu.Button {
     if (this._panelTimer)
       return;
     this._panelPhase = 0;
+    this._ensureWave();
+    this._placeWave(0);
     this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
       this._panelPhase += 0.084;
       const x = (this._panelPhase % (2 * Math.PI)) / (2 * Math.PI);
       const p = x < 0.5 ? x * 2 : (1 - x) * 2;
-      this._paintPanelWave(p);
+      this._placeWave(p);
       return GLib.SOURCE_CONTINUE;
     });
   }
@@ -325,6 +332,10 @@ class AgentIslandIndicator extends PanelMenu.Button {
     if (this._panelTimer) {
       GLib.source_remove(this._panelTimer);
       this._panelTimer = null;
+    }
+    if (this._barWave) {
+      try { this._barWave.destroy(); } catch (e) {}
+      this._barWave = null;
     }
   }
 
