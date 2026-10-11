@@ -63,7 +63,6 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._panelBase = null;
     this._panelPhase = 0;
     this._barTint = null;
-    this._barTintBlur = null;
     this._barTintSizeId = null;
     this._barTintPosId = null;
     this._pollId = null;
@@ -227,11 +226,11 @@ class AgentIslandIndicator extends PanelMenu.Button {
       this._panelBase = cls ? PANEL_RGB[cls] : null;
       if (!this._panelBase) {
         this._stopPanelWave();
-        this._removePanelBlur();
+        this._removeBarTint();
         Main.panel.set_style(null);
         return;
       }
-      this._ensurePanelBlur();
+      this._ensureBarTint();
       this._panelWave = (cls === 'ai-question' || cls === 'ai-error');
       if (this._panelWave)
         this._startPanelWave();
@@ -257,23 +256,24 @@ class AgentIslandIndicator extends PanelMenu.Button {
   _paintPanelWave(p) {
     const [r, g, b, a] = this._panelBase;
     const mix = (v, w) => Math.round(v + (255 - v) * w);
-    const dark = `rgba(${r}, ${g}, ${b}, ${a})`;
-    const light = `rgba(${mix(r, 0.5)}, ${mix(g, 0.5)}, ${mix(b, 0.5)}, ${a})`;
+    const base = `rgba(${r}, ${g}, ${b}, ${a})`;
+    const glow = `rgba(${mix(r, 0.35)}, ${mix(g, 0.35)}, ${mix(b, 0.35)}, ${a})`;
+    const peak = `rgba(${mix(r, 0.85)}, ${mix(g, 0.85)}, ${mix(b, 0.85)}, ${a})`;
     const pct = Math.round(p * 100);
-    const lo = Math.max(0, pct - 25);
-    const hi = Math.min(100, pct + 25);
-    this._setTintStyle(`background-color: ${dark}; background-image: linear-gradient(to right, ${dark} ${lo}%, ${light} ${pct}%, ${dark} ${hi}%);`);
+    const g0 = Math.max(0, pct - 20);
+    const g1 = Math.max(0, pct - 7);
+    const g2 = Math.min(100, pct + 7);
+    const g3 = Math.min(100, pct + 20);
+    this._setTintStyle(`background-color: ${base}; background-image: linear-gradient(to right, ${base} ${g0}%, ${glow} ${g1}%, ${peak} ${pct}%, ${glow} ${g2}%, ${base} ${g3}%);`);
   }
 
-  _ensurePanelBlur() {
+  _ensureBarTint() {
     if (this._barTint)
       return;
     try {
       const pb = Main.layoutManager.panelBox;
       const ui = Main.layoutManager.uiGroup;
       this._barTint = new St.Widget({ reactive: false });
-      this._barTintBlur = new Shell.BlurEffect({ radius: 24, brightness: 0.85 });
-      this._barTint.add_effect(this._barTintBlur);
       ui.insert_child_below(this._barTint, pb);
       this._syncBarTint();
       this._barTintSizeId = pb.connect('notify::size', () => this._syncBarTint());
@@ -292,7 +292,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._barTint.set_size(w, h);
   }
 
-  _removePanelBlur() {
+  _removeBarTint() {
     if (this._barTintSizeId) {
       try { Main.layoutManager.panelBox.disconnect(this._barTintSizeId); } catch (e) {}
       this._barTintSizeId = null;
@@ -304,7 +304,6 @@ class AgentIslandIndicator extends PanelMenu.Button {
     if (this._barTint) {
       try { this._barTint.destroy(); } catch (e) {}
       this._barTint = null;
-      this._barTintBlur = null;
     }
     try { Main.panel.set_style(null); } catch (e) {}
   }
