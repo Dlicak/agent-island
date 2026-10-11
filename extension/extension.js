@@ -16,17 +16,19 @@ const IFACE = 'org.agentisland.Daemon';
 
 const SYMBOL = { idle: '●', working: '●', waiting: '●', error: '●' };
 const LABEL = { idle: 'idle', working: 'working', waiting: 'needs input', error: 'error' };
-const PANEL_COLOR = {
-  'ai-working': '#3584e4',
-  'ai-plan': '#e66100',
-  'ai-question': '#9141ac',
-  'ai-error': '#e01b24',
+const PANEL_RGB = {
+  'ai-working': [53, 132, 228],
+  'ai-plan': [230, 97, 0],
+  'ai-question': [145, 65, 172],
+  'ai-error': [224, 27, 36],
 };
+const PANEL_ALPHA = 0.72;
 
 const Indicator = GObject.registerClass(
 class AgentIslandIndicator extends PanelMenu.Button {
   _init() {
     super._init(0.5, 'Agent Island');
+    try { this.menu.box.add_style_class_name('agent-island-menu'); } catch (e) {}
     this._sessions = [];
     this._online = false;
 
@@ -61,6 +63,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._panelTimer = null;
     this._panelBase = null;
     this._panelPhase = 0;
+    this._panelBlur = null;
     this._pollId = null;
     this._toastId = null;
     this._lastNotify = 0;
@@ -147,16 +150,27 @@ class AgentIslandIndicator extends PanelMenu.Button {
     console.log(`[agent-island] toast: ${text}`);
     this._toast.text = text;
     this._toast.visible = true;
+    this._toast.opacity = 0;
+    this._toast.set_translation(0, -4, 0);
+    this._toast.ease({
+      opacity: 255, translation_y: 0, duration: 260,
+      mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+    });
     if (this._toastId) {
       GLib.source_remove(this._toastId);
       this._toastId = null;
     }
     this._toastId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 4, () => {
       this._toastId = null;
-      if (this._toast) {
-        this._toast.visible = false;
-        this._toast.text = '';
-      }
+      if (this._toast)
+        this._toast.ease({ opacity: 0, duration: 260, mode: Clutter.AnimationMode.EASE_IN_QUAD });
+      GLib.timeout_add(GLib.PRIORITY_DEFAULT, 300, () => {
+        if (this._toast) {
+          this._toast.visible = false;
+          this._toast.text = '';
+        }
+        return GLib.SOURCE_REMOVE;
+      });
       return GLib.SOURCE_REMOVE;
     });
   }
@@ -208,21 +222,43 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   _setPanel(cls) {
     try {
-      this._panelBase = cls ? PANEL_COLOR[cls] : null;
+      this._panelBase = cls ? PANEL_RGB[cls] : null;
       if (!this._panelBase) {
         this._stopPanelBreath();
+        this._removePanelBlur();
         Main.panel.set_style(null);
         return;
       }
+      this._ensurePanelBlur();
+      this._paintPanel(1.0);
       this._panelBreathe = (cls === 'ai-question' || cls === 'ai-error');
-      if (this._panelBreathe) {
-        Main.panel.set_style(`background-color: ${this._panelBase};`);
+      if (this._panelBreathe)
         this._startPanelBreath();
-      } else {
+      else
         this._stopPanelBreath();
-        Main.panel.set_style(`background-color: ${this._panelBase};`);
-      }
     } catch (e) { logError(e); }
+  }
+
+  _paintPanel(f) {
+    const c = (v) => Math.max(0, Math.min(255, Math.round(v * f)));
+    const [r, g, b] = this._panelBase;
+    Main.panel.set_style(`background-color: rgba(${c(r)}, ${c(g)}, ${c(b)}, ${PANEL_ALPHA});`);
+  }
+
+  _ensurePanelBlur() {
+    if (this._panelBlur)
+      return;
+    try {
+      this._panelBlur = new Shell.BlurEffect({ radius: 24, brightness: 0.9 });
+      Main.panel.add_effect_with_name('agent-island-blur', this._panelBlur);
+    } catch (e) { this._panelBlur = null; logError(e); }
+  }
+
+  _removePanelBlur() {
+    if (!this._panelBlur)
+      return;
+    try { Main.panel.remove_effect_by_name('agent-island-blur'); } catch (e) {}
+    this._panelBlur = null;
   }
 
   _startPanelBreath() {
@@ -232,7 +268,7 @@ class AgentIslandIndicator extends PanelMenu.Button {
     this._panelTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 40, () => {
       this._panelPhase += 0.1;
       const t = (Math.sin(this._panelPhase) + 1) / 2;
-      Main.panel.set_style(`background-color: ${this._shade(this._panelBase, t)};`);
+      this._paintPanel(0.7 + 0.6 * t);
       return GLib.SOURCE_CONTINUE;
     });
   }
@@ -242,13 +278,6 @@ class AgentIslandIndicator extends PanelMenu.Button {
       GLib.source_remove(this._panelTimer);
       this._panelTimer = null;
     }
-  }
-
-  _shade(base, t) {
-    const f = 0.7 + 0.6 * t;
-    const h = (s) => parseInt(base.slice(s, s + 2), 16);
-    const hex = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
-    return `#${hex(h(1) * f)}${hex(h(3) * f)}${hex(h(5) * f)}`;
   }
 
   _startPulse() {
