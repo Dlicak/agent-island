@@ -343,6 +343,8 @@ class AgentIslandIndicator extends PanelMenu.Button {
 
   _startPanelGlow() {
     this._ensureGlow();
+    if (this._panelTimer)
+      return;
     this._panelPulsing = true;
     this._panelPhase = 0;
     this._applyPulse(1);
